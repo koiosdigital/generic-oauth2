@@ -22,8 +22,39 @@ export class GenericOAuth2Web extends WebPlugin implements GenericOAuth2Plugin {
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async refreshToken(_options: OAuth2RefreshTokenOptions): Promise<any> {
-    return new Promise<any>((_resolve, reject) => {
-      reject(new Error('Functionality not implemented for PWAs yet'));
+    return new Promise<any>((resolve, reject) => {
+      // validate
+      if (!_options.appId || _options.appId.length == 0) {
+        reject(new Error('ERR_PARAM_NO_APP_ID'));
+      } else if (
+        !_options.accessTokenEndpoint ||
+        _options.accessTokenEndpoint.length == 0
+      ) {
+        reject(new Error('ERR_PARAM_NO_ACCESS_TOKEN_ENDPOINT'));
+      } else {
+        const request = new XMLHttpRequest();
+        request.onload = function () {
+          if (this.status === 200) {
+            const resp = JSON.parse(this.response);
+            resolve(resp);
+          } else {
+            reject(new Error(this.statusText));
+          }
+        };
+        request.onerror = function () {
+          reject(new Error('ERR_GENERAL'));
+        };
+        request.open('POST', _options.accessTokenEndpoint, true);
+        request.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+
+        const requestBody = {
+          "client_id": _options.appId,
+          "grant_type": "refresh_token",
+          "refresh_token": _options.refreshToken,
+        }
+
+        request.send(JSON.stringify(requestBody));
+      }
     });
   }
 
@@ -158,7 +189,7 @@ export class GenericOAuth2Web extends WebPlugin implements GenericOAuth2Plugin {
                     );
                     this.doLog(
                       'State returned from provider: ' +
-                        authorizationRedirectUrlParamObj.state,
+                      authorizationRedirectUrlParamObj.state,
                     );
                   }
                   reject(new Error('ERR_STATES_NOT_MATCH'));
@@ -201,7 +232,7 @@ export class GenericOAuth2Web extends WebPlugin implements GenericOAuth2Plugin {
     tokenRequest.onerror = () => {
       this.doLog(
         'ERR_GENERAL: See client logs. It might be CORS. Status text: ' +
-          tokenRequest.statusText,
+        tokenRequest.statusText,
       );
       reject(new Error('ERR_GENERAL'));
     };
@@ -209,8 +240,8 @@ export class GenericOAuth2Web extends WebPlugin implements GenericOAuth2Plugin {
     tokenRequest.setRequestHeader('accept', 'application/json');
     if (this.webOptions.sendCacheControlHeader) {
       tokenRequest.setRequestHeader(
-          'cache-control',
-          'no-cache',
+        'cache-control',
+        'no-cache',
       );
     }
     tokenRequest.setRequestHeader(
